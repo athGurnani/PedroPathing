@@ -383,9 +383,9 @@ public class Follower {
      */
     public void setTeleOpDrive(double forward, double strafe, double turn, double offsetHeading) {
         vectorCalculator.setTeleOpMovementVectors(
-                lockY && forward == 0 ? vectorCalculator.runTranslationalLock(lockX, true).getYComponent() : forward,
-                lockX && strafe == 0 ? vectorCalculator.runTranslationalLock(true, lockY).getXComponent() : strafe,
-                lockHeading && turn == 0 ? vectorCalculator.runHeadingLock() : turn, true, offsetHeading);
+                forward == 0 ? vectorCalculator.runTranslationalLock(lockX, lockY).getYComponent() : 0,
+                lockX && strafe == 0 ? vectorCalculator.runTranslationalLock(true, lockY).getXComponent() : 0,
+                lockHeading && turn == 0 ? vectorCalculator.runHeadingLock() : turn, true, 0);
     }
 
     /**
