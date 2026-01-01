@@ -5,7 +5,6 @@ import com.pedropathing.math.Vector;
 import com.pedropathing.paths.PathConstraints;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public interface Curve {
     /**
@@ -205,16 +204,50 @@ public interface Curve {
     default String pathType() {
         return "other";
     }
-
+    
     /**
-     * Returns whether the curve is initialized or not
-     * @return true if the curve has been initialized and false otherwise
+     * Returns the left gradient (normal) vector of a 2D parametric curve at parameter {@code t}.
+     * <p>
+     * For a parametric curve {@code γ(t)}, the tangent vector is {@code γ'(t)}.
+     * Rotating this tangent by {@code -π/2} yields a vector orthogonal to the curve
+     * that points to the left of the curve with respect to increasing {@code t}.
+     * </p>
+     *
+     * <p>
+     * This vector may be interpreted as the gradient of an implicit scalar function
+     * {@code φ(x, y)} whose zero level set {@code φ(x, y) = 0} is the curve, and whose
+     * value increases on the left side of the curve.
+     * </p>
+     *
+     * @param t the curve parameter
+     * @return a vector normal to the curve at {@code t}, pointing to the left
      */
-    boolean isInitialized();
-
+    default Vector leftGradient(double t) {
+        Vector gradient = getDerivative(t);
+        gradient.rotateVector(-Math.PI / 2);
+        return gradient;
+    }
+    
     /**
-     * Gets the list of future control points
-     * @return a list of uninitialized control points
+     * Returns the right gradient (normal) vector of a 2D parametric curve at parameter {@code t}.
+     * <p>
+     * For a parametric curve {@code γ(t)}, the tangent vector is {@code γ'(t)}.
+     * Rotating this tangent by {@code +π/2} yields a vector orthogonal to the curve
+     * that points to the right of the curve with respect to increasing {@code t}.
+     * </p>
+     *
+     * <p>
+     * This vector may be interpreted as the gradient of an implicit scalar function
+     * {@code φ(x, y)} whose zero level set {@code φ(x, y) = 0} is the curve, and whose
+     * value increases on the right side of the curve.
+     * </p>
+     *
+     * @param t the curve parameter
+     * @return a vector normal to the curve at {@code t}, pointing to the right
      */
-    List<FuturePose> getFutureControlPoints();
+    default Vector rightGradient(double t) {
+        Vector gradient = getDerivative(t);
+        gradient.rotateVector(Math.PI / 2);
+        return gradient;
+    }
 }

@@ -3,7 +3,6 @@ package com.pedropathing.paths;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.Curve;
-import com.pedropathing.geometry.FuturePose;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.callbacks.ParametricCallback;
 import com.pedropathing.paths.callbacks.PathCallback;
@@ -118,12 +117,7 @@ public class PathBuilder {
     public PathBuilder curveThrough(Pose prevPoint, Pose startPoint, double tension, Pose... points){
         //guard against points being zero length (which means the curve doesn't have an end point)
         if (points.length == 0) {
-            try {
-                throw new Exception("Points array must contain at least one point to curve through.");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return this;
+            throw new IllegalArgumentException("Points array must contain at least one point to curve through.");
         }
         ArrayList<Pose> poses = new ArrayList<>();
 
@@ -250,37 +244,6 @@ public class PathBuilder {
         return this;
     }
 
-    public PathBuilder linearHeadingInterpol() {
-        return linearHeadingInterpol(1.0);
-    }
-
-    public PathBuilder linearHeadingInterpol(double t) {
-        Path path = this.paths.get(paths.size() - 1);
-
-        if (path.getCurve().isInitialized()) {
-            double heading0 = path.getControlPoints().get(0).getHeading();
-            double heading1 = path.getControlPoints().get(path.getControlPoints().size() - 1).getHeading();
-            return setLinearHeadingInterpolation(heading0, heading1, t);
-        } else {
-            List<FuturePose> poses = path.getCurve().getFutureControlPoints();
-            FuturePose initial = poses.get(0);
-            FuturePose last = poses.get(poses.size() - 1);
-            HeadingInterpolator.FutureDouble heading0 = () -> initial.getPose().getHeading();
-            HeadingInterpolator.FutureDouble heading1 = () -> last.getPose().getHeading();
-            return setHeadingInterpolation(HeadingInterpolator.reversedLinearFromPoint(heading0, heading1, t));
-        }
-    }
-
-    public PathBuilder constantHeadingInterpol() {
-        Path path = this.paths.get(paths.size() - 1);
-        if (path.getCurve().isInitialized()) return setConstantHeadingInterpolation(path.getControlPoints().get(path.getControlPoints().size() - 1).getHeading());
-        else {
-            FuturePose pose = path.getCurve().getFutureControlPoints().get(path.getCurve().getFutureControlPoints().size() - 1);
-            HeadingInterpolator.FutureDouble goal = () -> pose.getPose().getHeading();
-            return setHeadingInterpolation(HeadingInterpolator.constant(goal));
-        }
-    }
-
     /**
      * This sets a linear heading interpolation on the last Path added to the PathBuilder.
      *
@@ -357,7 +320,7 @@ public class PathBuilder {
      * @return This returns itself with the updated data.
      */
     public PathBuilder setGlobalReversed() {
-        headingInterpolator.reverse();
+        headingInterpolator = headingInterpolator.reverse();
         return this;
     }
 
@@ -677,48 +640,6 @@ public class PathBuilder {
         return this;
     }
 
-    /**
-     * Sets the max velocity for all paths in the PathBuilder
-     * @param maxVelocity the max velocity in inches per second
-     */
-    public PathBuilder setGlobalMaxVelocity(double maxVelocity) {
-        for (Path path : paths) path.setMaxVelocity(maxVelocity);
-        return this;
-    }
-
-    /**
-     * Sets the max acceleration for all paths in the PathBuilder
-     * @param maxAcceleration the max acceleration in inches per second squared
-     */
-    public PathBuilder setGlobalMaxAcceleration(double maxAcceleration) {
-        for (Path path : paths) path.setMaxAcceleration(maxAcceleration);
-        return this;
-    }
-
-    /**
-     * Sets the max velocity for the last path in the PathBuilder
-     * @param maxVelocity the max velocity in inches per second
-     * @return This returns itself with the updated data.
-     */
-    public PathBuilder setMaxVelocity(double maxVelocity) {
-        this.paths.get(paths.size() - 1).setMaxVelocity(maxVelocity);
-        return this;
-    }
-
-    /**
-     * Sets the max acceleration for the last path in the PathBuilder
-     * @param maxAcceleration the max acceleration in inches per second squared
-     * @return This returns itself with the updated data.
-     */
-    public PathBuilder setMaxAcceleration(double maxAcceleration) {
-        this.paths.get(paths.size() - 1).setMaxAcceleration(maxAcceleration);
-        return this;
-    }
-
-    /**
-     * Sets the braking start for all paths in the PathBuilder
-     * @param start the braking start multiplier
-     */
     private void setBrakingStartForAll(double start) {
         for (Path path : paths) path.setBrakingStart(start);
     }

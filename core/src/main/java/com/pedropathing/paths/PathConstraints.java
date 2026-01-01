@@ -63,17 +63,7 @@ public final class PathConstraints {
      */
     private int BEZIER_CURVE_SEARCH_LIMIT;
 
-    /**
-     * The maximum velocity the robot should be moving at when following this path
-     */
-    private double maxVelocity;
-
-    /**
-     * The maximum acceleration the robot should be moving at when following this path
-     */
-    private double maxAcceleration;
-
-    public PathConstraints(double tValueConstraint, double velocityConstraint, double translationalConstraint, double headingConstraint, double timeoutConstraint, double brakingStrength, int BEZIER_CURVE_SEARCH_LIMIT, double brakingStart, double maxVelocity, double maxAcceleration) {
+    public PathConstraints(double tValueConstraint, double velocityConstraint, double translationalConstraint, double headingConstraint, double timeoutConstraint, double brakingStrength, int BEZIER_CURVE_SEARCH_LIMIT, double brakingStart) {
         this.tValueConstraint = tValueConstraint;
         this.velocityConstraint = velocityConstraint;
         this.translationalConstraint = translationalConstraint;
@@ -82,19 +72,17 @@ public final class PathConstraints {
         this.brakingStrength = brakingStrength;
         this.brakingStart = brakingStart;
         this.BEZIER_CURVE_SEARCH_LIMIT = BEZIER_CURVE_SEARCH_LIMIT;
-        this.maxVelocity = maxVelocity;
-        this.maxAcceleration = maxAcceleration;
     }
 
     public PathConstraints(double tValueConstraint, double timeoutConstraint, double brakingStrength, double brakingStart) {
-        this(tValueConstraint, 0.1, 0.1, 0.007, timeoutConstraint, brakingStrength, 10, brakingStart, -1, -1);
+        this(tValueConstraint, 0.1, 0.1, 0.007, timeoutConstraint, brakingStrength, 10, brakingStart);
     }
 
     public PathConstraints(double tValueConstraint, double timeoutConstraint) {
-        this(tValueConstraint, 0.1, 0.1, 0.007, timeoutConstraint, 1, 10, 1, -1, -1);
+        this(tValueConstraint, 0.1, 0.1, 0.007, timeoutConstraint, 1, 10, 1);
     }
 
-    public static PathConstraints defaultConstraints = new PathConstraints(0.995, 0.1, 0.1, 0.007, 100, 1, 10, 1, -1, -1);
+    public static PathConstraints defaultConstraints = new PathConstraints(0.995, 0.1, 0.1, 0.007, 100, 1, 10, 1);
 
     public double getVelocityConstraint() {
         return velocityConstraint;
@@ -164,19 +152,7 @@ public final class PathConstraints {
         this.velocityConstraint = velocityConstraint;
     }
 
-    public double getMaxAcceleration() {
-        return maxAcceleration;
-    }
-
-    public double getMaxVelocity() {
-        return maxVelocity;
-    }
-
-    public void setMaxAcceleration(double maxAcceleration) {
-        this.maxAcceleration = maxAcceleration;
-    }
-
-    public void setMaxVelocity(double maxVelocity) {
-        this.maxVelocity = maxVelocity;
+    public PathConstraints copy() {
+        return new PathConstraints(tValueConstraint, velocityConstraint, translationalConstraint, headingConstraint, timeoutConstraint, brakingStrength, BEZIER_CURVE_SEARCH_LIMIT, brakingStart);
     }
 }

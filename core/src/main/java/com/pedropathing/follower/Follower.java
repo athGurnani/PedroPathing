@@ -1,5 +1,7 @@
 package com.pedropathing.follower;
 
+import com.pedropathing.ErrorCalculator;
+import com.pedropathing.VectorCalculator;
 import com.pedropathing.control.FilteredPIDFCoefficients;
 import com.pedropathing.control.PIDFCoefficients;
 import com.pedropathing.drivetrain.Drivetrain;
@@ -27,7 +29,6 @@ import com.pedropathing.util.Timer;
  * @author Anyi Lin - 10158 Scott's Bots
  * @author Aaron Yang - 10158 Scott's Bots
  * @author Harrison Womack - 10158 Scott's Bots
- * @author Atharv Gurnani - 13085 Bionic Dutch
  * @version 1.1.0, 5/1/2025
  */
 public class Follower {
@@ -57,6 +58,7 @@ public class Follower {
     public boolean useCentripetal = true;
     public boolean useHeading = true;
     public boolean useDrive = true;
+    public boolean usePredictiveBraking = true;
     private Timer zeroVelocityDetectedTimer = null;
     private Runnable resetFollowing = null;
     private boolean lockX = false, lockY = false, lockHeading = false;
@@ -144,6 +146,30 @@ public class Follower {
     }
 
     /**
+     * This sets the current x-position estimate of the localizer. Units are inferred from localizer constants where necessary.
+     * @param x the x-position estimate to set
+     */
+    public void setX(double x) {
+        poseTracker.getLocalizer().setX(x);
+    }
+
+    /**
+     * This sets the current y-position estimate of the localizer. Units are inferred from localizer constants where necessary.
+     * @param y the y-position estimate to set
+     */
+    public void setY(double y) {
+        poseTracker.getLocalizer().setY(y);
+    }
+
+    /**
+     * This sets the current heading estimate of the localizer, in radians.
+     * @param heading the heading estimate to set
+     */
+    public void setHeading(double heading) {
+        poseTracker.getLocalizer().setHeading(heading);
+    }
+
+    /**
      * This returns the current pose from the PoseTracker.
      *
      * @return returns the pose
@@ -206,6 +232,15 @@ public class Follower {
      */
     public void holdPoint(Pose pose) {
         holdPoint(new BezierPoint(pose), pose.getHeading());
+    }
+
+    /**
+     * This holds a Point.
+     *
+     * @param pose the Point (as a Pose) to stay at.
+     */
+    public void holdPoint(Pose pose, boolean useHoldScaling) {
+        holdPoint(new BezierPoint(pose), pose.getHeading(), useHoldScaling);
     }
 
     /**
@@ -432,12 +467,20 @@ public class Follower {
 
     /** Calls an update to the ErrorCalculator, which updates the robot's current error. */
     public void updateErrors() {
-        errorCalculator.update(currentPose, currentPath, currentPathChain, followingPathChain, closestPose.getPose(), poseTracker.getVelocity(), chainIndex, drivetrain.xVelocity(), drivetrain.yVelocity(), getClosestPointHeadingGoal());
+        errorCalculator.update(currentPose, currentPath, currentPathChain, followingPathChain, closestPose.getPose(), poseTracker.getVelocity(), chainIndex, drivetrain.xVelocity(), drivetrain.yVelocity(), getClosestPointHeadingGoal(), usePredictiveBraking);
     }
 
     /** Calls an update to the VectorCalculator, which updates the robot's current vectors to correct. */
     public void updateVectors() {
-        vectorCalculator.update(useDrive, useHeading, useTranslational, useCentripetal, manualDrive, chainIndex, drivetrain.getMaxPowerScaling(), followingPathChain, centripetalScaling, currentPose, closestPose.getPose(), poseTracker.getVelocity(), currentPath, currentPathChain, useDrive && !holdingPosition ? getDriveError() : -1, getTranslationalError(), getHeadingError(), getClosestPointHeadingGoal());
+        vectorCalculator.update(useDrive, useHeading, useTranslational, useCentripetal,
+                                manualDrive, chainIndex,
+                                drivetrain.getMaxPowerScaling(), followingPathChain,
+                                centripetalScaling, currentPose, closestPose.getPose(),
+                                poseTracker.getVelocity(), currentPath,
+                                currentPathChain, useDrive && !holdingPosition ?
+                                    getDriveError() : -1, getTranslationalError(),
+                                getHeadingError(), getClosestPointHeadingGoal(),
+                                getTotalDistanceRemaining());
     }
 
     public void updateErrorAndVectors() {updateErrors(); updateVectors();}
@@ -494,7 +537,15 @@ public class Follower {
             zeroVelocityDetectedTimer = new Timer();
         }
 
-        if (!(currentPath.isAtParametricEnd() || ( zeroVelocityDetectedTimer != null && zeroVelocityDetectedTimer.getElapsedTime() > 500.0))) {
+        boolean skipToNextPath =
+            followingPathChain && chainIndex < currentPathChain.size() - 2 && usePredictiveBraking
+                && vectorCalculator.predictiveBrakingController
+                .computeOutput(getDistanceRemaining(), getTangentialVelocity()) < 1;
+
+        if (!skipToNextPath &&
+            !(currentPath.isAtParametricEnd()
+                || (zeroVelocityDetectedTimer != null
+                && zeroVelocityDetectedTimer.getElapsedTime() > 500.0))) {
             return;
         }
 
@@ -571,6 +622,7 @@ public class Follower {
         manualDrive = false;
         holdingPosition = false;
         isBusy = false;
+        isTurning = false;
         reachedParametricPathEnd = false;
         zeroVelocityDetectedTimer = null;
     }
@@ -671,16 +723,25 @@ public class Follower {
         return poseTracker.getLocalizer().isNAN();
     }
 
-    /** Turns a certain amount of degrees left
+    /** Turns a certain amount of radians left
      * @param radians the amount of radians to turn
      * @param isLeft true if turning left, false if turning right
      */
+    @Deprecated
     public void turn(double radians, boolean isLeft) {
-        Pose temp = new Pose(getPose().getX(), getPose().getY(), getPose().getHeading() + (isLeft ? radians : -radians));
+        turn(isLeft ? radians : -radians);
+    }
+
+    /** Turns a certain amount of degrees counterclockwise
+     * @param radians the amount of radians to turn
+     */
+    public void turn(double radians) {
+        Pose temp = new Pose(getPose().getX(), getPose().getY(), getPose().getHeading() + radians);
         holdPoint(temp);
         isTurning = true;
         isBusy = true;
     }
+
 
     /** Turns to a specific heading
      * @param radians the heading in radians to turn to
@@ -694,6 +755,7 @@ public class Follower {
     /** Turns to a specific heading in degrees
      * @param degrees the heading in degrees to turn to
      */
+    @Deprecated
     public void turnToDegrees(double degrees) {
         turnTo(Math.toRadians(degrees));
     }
@@ -702,6 +764,7 @@ public class Follower {
      * @param degrees the amount of degrees to turn
      * @param isLeft true if turning left, false if turning right
      */
+    @Deprecated
     public void turnDegrees(double degrees, boolean isLeft) {
         turn(Math.toRadians(degrees), isLeft);
     }
@@ -1109,8 +1172,37 @@ public class Follower {
         return previousClosestPose;
     }
 
+    /**
+     * This gets the tangential velocity of the robot along the path
+     * @return the tangential velocity of the robot
+     */
+    public double getTangentialVelocity() {
+        return getVelocity().dot(getClosestPointTangentVector().normalize());
+    }
+
     public double getHeading() {
         return getPose().getHeading();
+    }
+
+    /**
+     * Gets the total distance remaining for the robot to follow along the entire PathChain
+     * @return the distance left on the current PathChain to follow
+     */
+    public double getTotalDistanceRemaining() {
+        if (currentPath == null) {
+            return 0;
+        }
+
+        if (!followingPathChain) {
+            return currentPath.getDistanceRemaining();
+        }
+
+        PathChain.DecelerationType type = currentPathChain.getDecelerationType();
+        if (type == PathChain.DecelerationType.NONE) {
+            return -1;
+        }
+
+        return currentPathChain.getDistanceRemaining(chainIndex);
     }
 
     /**

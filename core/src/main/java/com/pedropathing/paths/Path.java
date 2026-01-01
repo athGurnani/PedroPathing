@@ -598,44 +598,6 @@ public class Path {
     }
 
     /**
-     * This sets the maximum velocity for the Path. This is used for velocity profiling.
-     *
-     * @param maxVelocity the maximum velocity to set.
-     */
-    public void setMaxVelocity(double maxVelocity) {
-        constraints.setVelocityConstraint(maxVelocity);
-        if (curve != null) curve.setPathConstraints(constraints);
-    }
-
-    /**
-     * This gets the maximum velocity for the Path. This is used for velocity profiling.
-     *
-     * @return returns the maximum velocity.
-     */
-    public double getMaxVelocity() {
-        return constraints.getMaxVelocity();
-    }
-
-    /**
-     * This sets the maximum acceleration for the Path. This is used for velocity profiling.
-     *
-     * @param maxAcceleration the maximum acceleration to set.
-     */
-    public void setMaxAcceleration(double maxAcceleration) {
-        constraints.setMaxAcceleration(maxAcceleration);
-        if (curve != null) curve.setPathConstraints(constraints);
-    }
-
-    /**
-     * This gets the maximum acceleration for the Path. This is used for velocity profiling.
-     *
-     * @return returns the maximum acceleration.
-     */
-    public double getMaxAcceleration() {
-        return constraints.getMaxAcceleration();
-    }
-
-    /**
      * Returns the type of path. This is used in case we need to identify the type of BezierCurve
      * this is.
      *
@@ -689,9 +651,10 @@ public class Path {
      * @param constraints the PathConstraints to set.
      */
     public void setConstraints(PathConstraints constraints) {
-        this.constraints = constraints;
+        this.constraints = constraints.copy();
 
-        if (curve != null) curve.setPathConstraints(constraints);
+        if (curve != null)
+            curve.setPathConstraints(this.constraints);
     }
 
     /**
@@ -718,5 +681,9 @@ public class Path {
     public void init() {
         curve.initialize();
         headingInterpolator.init();
+    }
+    
+    public Vector getClosestLeftGradientVector() {
+        return curve.leftGradient(closestPointTValue).normalize();
     }
 }
