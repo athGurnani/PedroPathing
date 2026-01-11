@@ -19,7 +19,7 @@
  * SOFTWARE.
  */
 
-package org.firstinspires.ftc.teamcode;
+package com.pedropathing.ftc.localization.localizers;
 
 import com.qualcomm.hardware.digitalchickenlabs.OctoQuad;
 
@@ -29,6 +29,7 @@ import com.pedropathing.localization.Localizer;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.pedropathing.ftc.localization.constants.OctoQuadConstants;
 
 public class OctoQuadLocalizer implements Localizer
 {
