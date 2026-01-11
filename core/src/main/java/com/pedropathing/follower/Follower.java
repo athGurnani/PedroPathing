@@ -61,7 +61,6 @@ public class Follower {
     public boolean usePredictiveBraking = true;
     private Timer zeroVelocityDetectedTimer = null;
     private Runnable resetFollowing = null;
-    private boolean lockX = false, lockY = false, lockHeading = false;
 
     /**
      * This creates a new Follower given a HardwareMap.
@@ -401,11 +400,7 @@ public class Follower {
      * @param offsetHeading the offset heading for field centric control, will face the direction of such heading in radians in the field coordinate system when driving forward
      */
     public void setTeleOpDrive(double forward, double strafe, double turn, boolean isRobotCentric, double offsetHeading) {
-            vectorCalculator.setTeleOpMovementVectors(
-                    lockY && forward == 0 ? vectorCalculator.runTranslationalLock(lockX, true).getYComponent() : forward,
-                    lockX && strafe == 0 ? vectorCalculator.runTranslationalLock(true, lockY).getXComponent() : strafe,
-                    lockHeading && turn == 0 ? vectorCalculator.runHeadingLock() : turn,
-                    isRobotCentric, offsetHeading);
+        vectorCalculator.setTeleOpMovementVectors(forward, strafe, turn, isRobotCentric, offsetHeading);
     }
 
     /**
@@ -417,10 +412,7 @@ public class Follower {
      * @param offsetHeading the offset heading for field centric control, will face the direction of such heading in radians in the field coordinate system when driving forward
      */
     public void setTeleOpDrive(double forward, double strafe, double turn, double offsetHeading) {
-        vectorCalculator.setTeleOpMovementVectors(
-                forward == 0 ? vectorCalculator.runTranslationalLock(lockX, lockY).getYComponent() : 0,
-                lockX && strafe == 0 ? vectorCalculator.runTranslationalLock(true, lockY).getXComponent() : 0,
-                lockHeading && turn == 0 ? vectorCalculator.runHeadingLock() : turn, true, 0);
+        vectorCalculator.setTeleOpMovementVectors(forward, strafe, turn, true, offsetHeading);
     }
 
     /**
@@ -432,10 +424,7 @@ public class Follower {
      * @param isRobotCentric true if robot centric control, false if field centric
      */
     public void setTeleOpDrive(double forward, double strafe, double turn, boolean isRobotCentric) {
-        vectorCalculator.setTeleOpMovementVectors(
-                lockY && forward == 0 ? vectorCalculator.runTranslationalLock(lockX, true).getYComponent() : forward,
-                lockX && strafe == 0 ? vectorCalculator.runTranslationalLock(true, lockY).getXComponent() : strafe,
-                lockHeading && turn == 0 ? vectorCalculator.runHeadingLock() : turn, isRobotCentric);
+        vectorCalculator.setTeleOpMovementVectors(forward, strafe, turn, isRobotCentric);
     }
 
     /**
@@ -447,10 +436,7 @@ public class Follower {
      * @param turn the turn movement
      */
     public void setTeleOpDrive(double forward, double strafe, double turn) {
-        vectorCalculator.setTeleOpMovementVectors(
-                lockY && forward == 0 ? vectorCalculator.runTranslationalLock(lockX, true).getYComponent() : forward,
-                lockX && strafe == 0 ? vectorCalculator.runTranslationalLock(true, lockY).getXComponent() : strafe,
-                lockHeading && turn == 0 ? vectorCalculator.runHeadingLock() : turn);
+        vectorCalculator.setTeleOpMovementVectors(forward, strafe, turn);
     }
 
     /** Updates the Mecanum constants */
@@ -536,13 +522,13 @@ public class Follower {
                 && zeroVelocityDetectedTimer == null && isBusy) {
             zeroVelocityDetectedTimer = new Timer();
         }
-
+        
         boolean skipToNextPath =
             followingPathChain && chainIndex < currentPathChain.size() - 2 && usePredictiveBraking
                 && vectorCalculator.predictiveBrakingController
                 .computeOutput(getDistanceRemaining(), getTangentialVelocity()) < 1;
-
-        if (!skipToNextPath &&
+        
+        if (//!skipToNextPath &&
             !(currentPath.isAtParametricEnd()
                 || (zeroVelocityDetectedTimer != null
                 && zeroVelocityDetectedTimer.getElapsedTime() > 500.0))) {
@@ -1196,29 +1182,12 @@ public class Follower {
         if (!followingPathChain) {
             return currentPath.getDistanceRemaining();
         }
-
+        
         PathChain.DecelerationType type = currentPathChain.getDecelerationType();
         if (type == PathChain.DecelerationType.NONE) {
             return -1;
         }
-
+        
         return currentPathChain.getDistanceRemaining(chainIndex);
-    }
-
-    /**
-     * This toggles heading and position locking during TeleOp
-     */
-    public void teleOpLock (boolean x, boolean y, boolean heading) {
-        lockX = x;
-        lockY = y;
-        lockHeading = heading;
-
-        if (x || y || heading)  vectorCalculator.updateLockingPose();
-
-        if (x || y)         vectorCalculator.startTranslationalLock();
-        else                vectorCalculator.stopTranslationalLock();
-
-        if (lockHeading)    vectorCalculator.startHeadingLock();
-        else                vectorCalculator.stopHeadingLock();
     }
 }
