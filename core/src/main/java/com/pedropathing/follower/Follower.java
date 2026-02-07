@@ -21,6 +21,9 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.math.Vector;
 import com.pedropathing.util.Timer;
 
+import java.util.ArrayDeque;
+import java.util.Queue;
+
 /**
  * This is the Follower class. It handles the actual following of the paths and all the on-the-fly
  * calculations that are relevant for movement.
@@ -61,6 +64,7 @@ public class Follower {
     public boolean usePredictiveBraking = true;
     private Timer zeroVelocityDetectedTimer = null;
     private Runnable resetFollowing = null;
+    private Queue<PathCallback> currentCallbacks;
 
     /**
      * This creates a new Follower given a HardwareMap.
@@ -85,9 +89,11 @@ public class Follower {
         centripetalScaling = constants.centripetalScaling;
         turnHeadingErrorThreshold = constants.turnHeadingErrorThreshold;
         automaticHoldEnd = constants.automaticHoldEnd;
+        usePredictiveBraking = constants.usePredictiveBraking;
 
         breakFollowing();
     }
+
 
     public void updateConstants() {
         this.BEZIER_CURVE_SEARCH_LIMIT = constants.BEZIER_CURVE_SEARCH_LIMIT;
@@ -96,6 +102,7 @@ public class Follower {
         this.centripetalScaling = constants.centripetalScaling;
         this.turnHeadingErrorThreshold = constants.turnHeadingErrorThreshold;
         this.automaticHoldEnd = constants.automaticHoldEnd;
+        this.usePredictiveBraking = !manualDrive && constants.usePredictiveBraking;
     }
 
     /**
@@ -309,11 +316,10 @@ public class Follower {
         previousClosestPose = closestPose;
         closestPose = currentPath.updateClosestPose(poseTracker.getPose(), BEZIER_CURVE_SEARCH_LIMIT);
         currentPathChain.resetCallbacks();
+        currentCallbacks = currentPathChain.getNextPathCallbacks(chainIndex);
 
-        for (PathCallback callback : currentPathChain.getCallbacks()) {
-            if (callback.getPathIndex() == chainIndex) {
-                callback.initialize();
-            }
+        for (PathCallback callback : currentCallbacks) {
+            callback.initialize();
         }
     }
 
@@ -466,7 +472,7 @@ public class Follower {
                                 currentPathChain, useDrive && !holdingPosition ?
                                     getDriveError() : -1, getTranslationalError(),
                                 getHeadingError(), getClosestPointHeadingGoal(),
-                                getTotalDistanceRemaining());
+                                getTotalDistanceRemaining(), usePredictiveBraking);
     }
 
     public void updateErrorAndVectors() {updateErrors(); updateVectors();}
@@ -545,11 +551,10 @@ public class Follower {
             if (followingPathChain) currentPathChain.update();
             closestPose = currentPath.updateClosestPose(poseTracker.getPose(), BEZIER_CURVE_SEARCH_LIMIT);
             updateErrorAndVectors();
+            currentCallbacks = currentPathChain.getNextPathCallbacks(chainIndex);
 
-            for (PathCallback callback : currentPathChain.getCallbacks()) {
-                if (callback.getPathIndex() == chainIndex) {
-                    callback.initialize();
-                }
+            for (PathCallback callback : currentCallbacks) {
+                callback.initialize();
             }
 
             return;
@@ -593,8 +598,8 @@ public class Follower {
 
     /** This checks if any PathCallbacks should be run right now, and runs them if applicable. */
     public void updateCallbacks() {
-        for (PathCallback callback : currentPathChain.getCallbacks()) {
-            if (callback.isReady() && callback.getPathIndex() == chainIndex) {
+        for (PathCallback callback : currentCallbacks) {
+            if (callback.isReady()) {
                 callback.run();
             }
         }
@@ -640,6 +645,10 @@ public class Follower {
      * @return returns whether the Follower is at the parametric end of its Path.
      */
     public boolean atParametricEnd() {
+        if (currentPath == null){
+            return true;
+        }
+
         if (followingPathChain) {
             if (chainIndex == currentPathChain.size() - 1) return currentPath.isAtParametricEnd();
             return false;
