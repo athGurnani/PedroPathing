@@ -23,6 +23,7 @@ public class VectorCalculator {
     private FollowerConstants constants;
 
     private Path currentPath;
+    private PoseLockController poseLockController;
     private PathChain currentPathChain;
     private Pose currentPose, closestPose, lockingPose;
     private double translationalTargetTheta;
@@ -77,6 +78,7 @@ public class VectorCalculator {
         translationalIntegral = new PIDFController(constants.integralTranslational);
         secondaryTranslationalIntegral = new PIDFController(constants.integralSecondaryTranslational);
         predictiveBrakingController = new PredictiveBrakingController(constants.predictiveBrakingCoefficients);
+        poseLockController = new PoseLockController(headingPIDF, translationalPIDF);
         updateConstants();
     }
     
@@ -131,8 +133,9 @@ public class VectorCalculator {
         this.distanceRemainingBeforeStop = distanceRemaining;
         this.usePredictiveBraking = usePredictiveBraking;
 
-        if(teleopDrive)
+        if(teleopDrive) {
             teleopUpdate();
+        }
     }
     
     public void breakFollowing() {
@@ -175,6 +178,11 @@ public class VectorCalculator {
     public void teleopUpdate() {
         velocities.add(velocity);
         velocities.remove(velocities.get(velocities.size() - 1));
+
+        this.poseLockController.update(currentPose, teleopDriveValues[0], teleopDriveValues[1], teleopDriveValues[2]);
+        teleopDriveValues[0] = this.poseLockController.getPowerX();
+        teleopDriveValues[1] = this.poseLockController.getPowerY();
+        teleopDriveValues[2] = this.poseLockController.getHeadingPower();
 
         calculateAveragedVelocityAndAcceleration();
     }
@@ -519,37 +527,23 @@ public class VectorCalculator {
     }
 
     public void startHeadingLock() {
-        headingPIDF.setTargetPosition(lockingPose.getHeading());
+        poseLockController.startHeadingLock();
     }
     public void startTranslationalLock() {
-        translationalPIDF.setTargetPosition(Math.sqrt(Math.pow(lockingPose.getX(), 2) + Math.pow(lockingPose.getY(), 2)));  //Magnitude of polar coordinate
-        translationalTargetTheta = Math.atan(lockingPose.getY()/lockingPose.getX());
+        poseLockController.startTranslationalLock();
     }
 
     public Vector runTranslationalLock(boolean x, boolean y) {
-        translationalPIDF.updatePosition(
-                Math.sqrt(
-                        Math.pow(x ? currentPose.getX() : lockingPose.getX(), 2) + Math.pow(x ? currentPose.getY() : lockingPose.getY(), 2)
-                ));
-        return new Vector(
-                translationalPIDF.run(),
-                Math.atan((
-                        x ? currentPose.getX() : lockingPose.getX()) / (y ? currentPose.getY() : lockingPose.getY())
-                ));
+        return new Vector(new Pose(poseLockController.getPowerX(), poseLockController.getPowerY(), poseLockController.getHeadingPower()));
     }
 
     public double runHeadingLock() {
-        return MathFunctions.clamp(headingPIDF.run(), -maxPowerScaling, maxPowerScaling);
+        return poseLockController.getHeadingPower();
     }
-
-    public void updateLockingPose() {
-        lockingPose = currentPose.copy();
-    }
-
     public void stopTranslationalLock() {
-        translationalPIDF.reset();
+        poseLockController.stopTranslationalLock();
     }
     public void stopHeadingLock() {
-        headingPIDF.reset();
+        poseLockController.stopHeadingLock();
     }
 }

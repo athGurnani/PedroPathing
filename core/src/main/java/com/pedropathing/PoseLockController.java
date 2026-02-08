@@ -1,16 +1,21 @@
 package com.pedropathing;
 
-import com.pedropathing.control.FilteredPIDFController;
 import com.pedropathing.control.PIDFController;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
 
+/**
+ * This is the PoseLockController.
+ * It controls heading and translational correction during TeleOp drive.
+ *
+ * @author Atharv Gurnani - 13085 Bionic Dutch
+ */
 
 public class PoseLockController {
     private boolean translationalLock = false, headingLock = false;
     private Pose lockPose = new Pose();
     private PIDFController headingPIDF;
-    private FilteredPIDFController translationalPIDF;
+    private PIDFController translationalPIDF;
     private Vector translationalCorrection = new Vector();
     private double headingCorrection = 0.0;
     private double previousXPower = 0.0, previousYPower = 0.0, previousHeadingPower = 0.0;
@@ -19,7 +24,7 @@ public class PoseLockController {
     /**
      * Controls TeleOp heading and translational zero-power lock.
      */
-    public PoseLockController(PIDFController headingPIDF, FilteredPIDFController translationalPIDF) {
+    public PoseLockController(PIDFController headingPIDF, PIDFController translationalPIDF) {
         this.headingPIDF = headingPIDF;
         this.translationalPIDF = translationalPIDF;
     }
@@ -27,13 +32,13 @@ public class PoseLockController {
     /**
      * @param currentPose   Current bot pose
      */
-    public void update(Pose currentPose, double xPower, double yPower, double headingPower) {
+    public void update(Pose currentPose, double forwardPower, double strafePower, double headingPower) {
         // Set previous and current powers
         this.previousXPower = this.currentXPower;
-        this.currentXPower = xPower;
+        this.currentXPower = forwardPower;
 
         this.previousYPower = this.currentYPower;
-        this.currentYPower = yPower;
+        this.currentYPower = strafePower;
 
         this.previousHeadingPower = this.currentHeadingPower;
         this.currentHeadingPower = headingPower;
@@ -48,42 +53,39 @@ public class PoseLockController {
     }
 
     /**
-     * @param xPower    X power given to Follower.setTeleopDrive()
      * @return          Translationally locked X power
      */
-    public double getPowerX(double xPower) {
-        if (xPower == 0) {
+    public double getPowerX() {
+        if (this.currentXPower == 0) {
             return translationalCorrection.getXComponent();
         }
         else {
-            return xPower;
+            return this.currentXPower;
         }
     }
 
     /**
-     * @param yPower    Y power given to Follower.setTeleopDrive()
      * @return          Translationally locked Y power
      */
-    public double getPowerY(double yPower) {
-        if (yPower == 0) {
+    public double getPowerY() {
+        if (this.currentYPower == 0) {
             return translationalCorrection.getYComponent();
         }
         else {
-            return yPower;
+            return this.currentYPower;
         }
     }
 
     /**
      *
-     * @param headingPower  Heading power given to Follower.setTeleopDrive()
      * @return              Locked heading power
      */
-    public double getHeadingPower(double headingPower) {
-        if (headingPower == 0) {
+    public double getHeadingPower() {
+        if (this.currentHeadingPower == 0) {
             return headingCorrection;
         }
         else {
-            return headingPower;
+            return this.currentHeadingPower;
         }
     }
 
@@ -117,11 +119,6 @@ public class PoseLockController {
     //TODO: Allow x/y control individually
     public void startTranslationalLock() {
         translationalLock = true;
-        translationalPIDF.setTargetPosition(
-                Math.sqrt(
-                        Math.pow(lockPose.getX(), 2) + Math.pow(lockPose.getY(), 2)
-                )
-        );  //Magnitude of polar coordinate
     }
     private void setLockPose(Pose lockPose) {
         this.lockPose = lockPose;
@@ -164,8 +161,8 @@ public class PoseLockController {
         translationalCorrection = new Vector(
                 translationalPIDF.run(),
                 Math.atan2(
-                        currentPose.getY() - lockPose.getY(),   //error between current and target
-                        currentPose.getX() - lockPose.getX()
+                        currentPose.getX() - lockPose.getX(),   //error between current and target
+                        currentPose.getY() - lockPose.getY()
                 )
         );
     }
